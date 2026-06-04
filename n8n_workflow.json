@@ -1,0 +1,412 @@
+{
+  "name": "Jhaen - WhatsApp Inmobiliaria",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp-inmobiliaria",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "node-webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"ok\": true }",
+        "options": {}
+      },
+      "id": "node-respond",
+      "name": "Respond 200",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [460, 180]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-grupo",
+              "leftValue": "={{ ($json.body.messages && $json.body.messages[0] ? $json.body.messages[0].chat_id : ($json.body.chats_updates && $json.body.chats_updates[0] && $json.body.chats_updates[0].after_update && $json.body.chats_updates[0].after_update.last_message ? $json.body.chats_updates[0].after_update.last_message.chat_id : '')) }}",
+              "rightValue": "@g.us",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "cond-not-from-me",
+              "leftValue": "={{ ($json.body.messages && $json.body.messages[0] ? $json.body.messages[0].from_me : ($json.body.chats_updates && $json.body.chats_updates[0] && $json.body.chats_updates[0].after_update && $json.body.chats_updates[0].after_update.last_message ? $json.body.chats_updates[0].after_update.last_message.from_me : true)) }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "false"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-if-grupo",
+      "name": "IF Es grupo",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = ($json && $json.body) ? $json.body : ($json || {});\nlet msg = null;\nif (body.messages && body.messages.length) {\n  msg = body.messages[0];\n} else if (body.chats_updates && body.chats_updates.length &&\n           body.chats_updates[0].after_update &&\n           body.chats_updates[0].after_update.last_message) {\n  msg = body.chats_updates[0].after_update.last_message;\n}\nif (!msg) {\n  return [{ json: { text: '', sender: '', groupId: '', pushName: '' } }];\n}\nconst text = (msg.text && msg.text.body) || msg.caption || '';\nconst sender = msg.from || '';\nconst groupId = msg.chat_id || body.id || '';\nconst pushName = msg.from_name || '';\nreturn [{ json: { text, sender, groupId, pushName } }];"
+      },
+      "id": "node-extraer-texto",
+      "name": "Extraer texto",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://jhaen-parser:5000/process",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text",
+              "value": "={{ $json.text }}"
+            },
+            {
+              "name": "sender",
+              "value": "={{ $json.sender }}"
+            },
+            {
+              "name": "group_id",
+              "value": "={{ $json.groupId }}"
+            },
+            {
+              "name": "push_name",
+              "value": "={{ $json.pushName }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "node-api-python",
+      "name": "API Python /process",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-es-solicitud",
+              "leftValue": "={{ $json.es_solicitud }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            },
+            {
+              "id": "cond-tiene-mensajes",
+              "leftValue": "={{ $json.mensajes.length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-if-solicitud",
+      "name": "IF Es solicitud",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-tiene-telefono",
+              "leftValue": "={{ $json.telefono }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            },
+            {
+              "id": "cond-tiene-resultados",
+              "leftValue": "={{ $json.total_resultados }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-if-puede-enviar",
+      "name": "IF Puede enviar",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "mensajes",
+        "options": {}
+      },
+      "id": "node-split",
+      "name": "Split mensajes",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": "={{ Math.floor(Math.random() * 61) + 120 }}",
+        "unit": "seconds",
+        "options": {}
+      },
+      "id": "node-delay",
+      "name": "Delay aleatorio",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1780, 300],
+      "webhookId": "f4a2b7c8-3d1e-4a9f-b6c5-7e8d9a0b1c2d"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://gate.whapi.cloud/messages/text",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer cW8fV7EPgIeMfI3dCxrqEmR3ofYNgDvv"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "to",
+              "value": "={{ $('API Python /process').first().json.telefono.includes('@') ? $('API Python /process').first().json.telefono : '57' + $('API Python /process').first().json.telefono }}"
+            },
+            {
+              "name": "body",
+              "value": "={{ $('Delay aleatorio').item.json.mensajes }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "node-enviar-wa",
+      "name": "Enviar WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2220, 300]
+    },
+
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://gate.whapi.cloud/messages/text",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer cW8fV7EPgIeMfI3dCxrqEmR3ofYNgDvv"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "to",
+              "value": "={{ $('API Python /process').first().json.telefono.includes('@') ? $('API Python /process').first().json.telefono : '57' + $('API Python /process').first().json.telefono }}"
+            },
+            {
+              "name": "body",
+              "value": "={{ $('Extraer texto').first().json.text }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "node-enviar-pedido",
+      "name": "Enviar Pedido",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2000, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Respond 200",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "IF Es grupo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Es grupo": {
+      "main": [
+        [
+          {
+            "node": "Extraer texto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer texto": {
+      "main": [
+        [
+          {
+            "node": "API Python /process",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "API Python /process": {
+      "main": [
+        [
+          {
+            "node": "IF Es solicitud",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Es solicitud": {
+      "main": [
+        [
+          {
+            "node": "IF Puede enviar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Puede enviar": {
+      "main": [
+        [
+          {
+            "node": "Split mensajes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split mensajes": {
+      "main": [
+        [
+          {
+            "node": "Delay aleatorio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delay aleatorio": {
+      "main": [
+        [
+          {
+            "node": "Enviar Pedido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar Pedido": {
+      "main": [
+        [
+          {
+            "node": "Enviar WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "id": "wS1VtPLDqJsZwu8y",
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2026-04-28T00:00:00.000Z",
+  "versionId": "1"
+}
