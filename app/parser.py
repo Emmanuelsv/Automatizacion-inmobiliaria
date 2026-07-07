@@ -5,7 +5,6 @@ from app.locations import BARRIOS, ALIAS_CIUDADES
 from app.normalizer import normalize_text, remove_emojis
 from app.price_parser import extract_budget, Budget
 
-
 @dataclass
 class Location:
     ciudad: str
@@ -19,7 +18,7 @@ class SolicitudParseada:
     ubicaciones: list[Location] = field(default_factory=list)
     ubicaciones_excluidas: list[Location] = field(default_factory=list)
     presupuesto: Budget = field(default_factory=Budget)
-    tipo_inmueble: str | None = None
+    tipo_inmueble: list[str] | None = None
     habitaciones_min: int | None = None
     area_min: int | None = None
     administracion_max: int | None = None
@@ -32,64 +31,33 @@ class SolicitudParseada:
 
 def is_solicitud(text: str) -> bool:
     normalized = normalize_text(text)
+    
     keywords = [
-        "solicitud de propiedad",
-        "solicitud de inmueble",
-        "se busca",
-        "busco",
-        "necesito",
-        "cliente busca",
-        "cliente necesita",
-        "requiero",
-        "presupuesto",
-        "ubicacion deseada",
-        # REMOVIDO: "habitaciones" → aparece en ofertas también
-        # REMOVIDO: "inmueble"      → aparece en ofertas también
-        # REMOVIDO: "inmobiliaria", "inmobiliarios", "inmobiliario" → ambiguos
-        # REMOVIDO: "real estate"   → ambiguo
-        "solicitud",
-        "solicito",
-        "modo de pago",
-        "credito hipotecario",
-        "credito bancario",
-        "credito",
-        "pago de contado",
-        "pago contado",
-        "leasing",
-        "arrendamiento con opcion de compra",
-        "leasing habitacional",
-        "quiero apartamento",
-        "quiero un apartamento",
-        "quiero apto",
-        "quiero un apto",
-        "quiero casa",
-        "quiero una casa",
-        "cliente quiere casa",
-        "cliente quiere una casa",      
-        "cliente quiere apartamento",
-        "cliente quiere un apartamento",        
+        "solicitud de propiedad", "solicitud de inmueble", "se busca", "busco",
+        "necesito", "cliente busca", "cliente necesita", "requiero", "presupuesto",
+        "ubicacion deseada", "solicitud", "solicito", "modo de pago",
+        "credito hipotecario", "credito bancario", "credito", "pago de contado",
+        "pago contado", "leasing", "arrendamiento con opcion de compra",
+        "leasing habitacional", "quiero apartamento", "quiero un apartamento",
+        "quiero apto", "quiero un apto", "quiero casa", "quiero una casa",
+        "cliente quiere casa", "cliente quiere una casa", "cliente quiere apartamento",
+        "cliente quiere un apartamento"
     ]
     
     keywords_oferta = [
-        "oferta de propiedad",
-        "oferta de inmueble",
-        "venta",
-        "ofrezco",
-        "disponible",
-        "ofertar",
-        "oferta",
-        "ofrecemos",
-        "para colegaje",
-        "vendemos",
-        "en venta",
-        "se vende",
-        "se ofrece",
-        "vendo", 
-
+        "oferta de propiedad", "oferta de inmueble", "venta", "ofrezco",
+        "disponible", "ofertar", "oferta", "ofrecemos", "para colegaje",
+        "vendemos", "en venta", "se vende", "se ofrece", "vendo" ,"arriendo",
+        "apto en arriendo", "casa en arriendo", "apartamento en arriendo", 
+        "arriendo apartamento", "arriendo casa", "arriendo apto", 
+        "arriendo inmueble", "arriendo propiedad", "para arriendo", "para arrendar", 
+        "arrendar", "arrendamiento"
     ]
      
-    keyword_oferta_count = sum(1 for ko in keywords_oferta if ko in normalized)
-    keyword_count = sum(1 for kw in keywords if kw in normalized)
+    # Utilizamos _word_match para garantizar que las palabras se evalúen completas
+    keyword_oferta_count = sum(1 for ko in keywords_oferta if _word_match(ko, normalized))
+    keyword_count = sum(1 for kw in keywords if _word_match(kw, normalized))
+    
     has_price = bool(
         re.search(r"\$?\d{1,3}(?:\.\d{3}){2,}", text)
         or re.search(r"\d+\s*(?:millones|millon|mills?|mll|mls)\b", text, re.IGNORECASE)
@@ -100,14 +68,14 @@ def is_solicitud(text: str) -> bool:
             and re.search(r"(?<!\d)\d{3,5}(?!\d)", text)
         )
     )
+    
     has_url = bool(
         re.search(r"https?://[^/]+\.inmo\.co", normalized)
         or re.search(r"https://info\.wasi\.co", text)
     )
 
-    # Si el mensaje tiene señales claras de búsqueda, no bloquearlo por oferta
     has_solicitud_fuerte = any(
-        kw in normalized
+        _word_match(kw, normalized)
         for kw in ["busco", "se busca", "necesito", "solicitud", "solicito",
                    "cliente busca", "cliente necesita", "requiero"]
     )
@@ -118,7 +86,7 @@ def is_solicitud(text: str) -> bool:
         # Oferta clara sin señal de búsqueda → siempre es oferta
         return False
     elif has_solicitud_fuerte and has_price:
-        # Señal explícita de búsqueda ("busco", "necesito", etc.) + precio → solicitud
+        # Señal explícita de búsqueda + precio → solicitud
         return True
     else:
         return keyword_count >= 1 and has_price
@@ -155,30 +123,38 @@ def extract_locations(text: str) -> list[Location]:
     return found
 
 
-def extract_property_type(text: str) -> str | None:
+def extract_property_type(text: str) -> list[str] | None:
     normalized = normalize_text(text)
+    found = set()
 
+    # 1. Frases compuestas: interceptar y limpiar el texto
+    # Si detecta la frase, agrega "Lote" y borra la palabra "casa" para que no se detecte luego.
+    if re.search(r"lote\s+(?:para\s+)?(?:construir\s+)?(?:una\s+)?casa", normalized):
+        found.add("Lote")
+        normalized = re.sub(r"lote\s+(?:para\s+)?(?:construir\s+)?(?:una\s+)?casa", "", normalized)
+        
+    if re.search(r"casa\s+(?:con\s+)?(?:lote|terreno)", normalized):
+        found.add("Casa")
+        normalized = re.sub(r"casa\s+(?:con\s+)?(?:lote|terreno)", "", normalized)
+
+    # 2. Búsqueda estándar (ahora segura contra cruces)
     types = [
-        (["apartamento", "apto", "apto.", "apartaestudio"], "Apartamento"),
-        (["casa", "casa campestre"], "Casa"),
-        (["local", "local comercial"], "Local"),
+        (["apartamento", "apto", "apartaestudio"], "Apartamento"),
+        (["casa campestre", "casa"], "Casa"),
+        (["local comercial", "local"], "Local"),
         (["oficina"], "Oficina"),
         (["bodega"], "Bodega"),
         (["lote", "terreno"], "Lote"),
         (["finca"], "Finca"),
     ]
 
-    found = []
     for patterns, prop_type in types:
         for pattern in patterns:
-            if pattern in normalized:
-                found.append(prop_type)
+            if _word_match(pattern, normalized):
+                found.add(prop_type)
                 break
 
-    # Si el usuario menciona múltiples tipos ("apartamento o casa"), no filtrar
-    if len(found) == 1:
-        return found[0]
-    return None
+    return list(found) if found else None
 
 
 def extract_rooms(text: str) -> int | None:
@@ -408,3 +384,44 @@ def parse_message(raw_text: str) -> SolicitudParseada:
         caracteristicas=extract_features(raw_text),
         mensaje_original=raw_text,
     )
+
+def optimizar_ubicaciones(ubicaciones: list) -> list:
+    """
+    Remueve las macro-zonas amplias (ej. El Poblado) si en la misma solicitud
+    se detecta un sector o barrio específico que pertenece a ella (ej. Santa María de los Ángeles).
+    """
+    # Definimos la jerarquía local (aquí puedes dejar los nombres sin tildes o con tildes, da igual)
+    JERARQUIA_ZONAS = {
+        "el poblado": [
+            "castropol", "provenza", "manila", "patio bonito", "los balsos", 
+            "alejandria", "el tesoro", "las lomas", "san lucas", "la calera", 
+            "el campestre", "santa maria de los angeles", "lleras", "astorga"
+        ],
+        "laureles": [
+            "conquistadores", "estadio", "simon bolivar", "nutibara", 
+            "florida nueva", "san joaquin"
+        ],
+        "belen": [
+            "rosales", "loma de los bernal", "granada", "rodeo alto", "fatima"
+        ],
+        "envigado": [
+            "loma de las brujas", "las brujas", "zuñiga", "cumbres", 
+            "el escobero", "la sebastiana", "alcala"
+        ]
+    }
+    
+    # 1. Normalizamos TODOS los barrios extraídos del mensaje (quita tildes y pasa a minúsculas)
+    barrios_extraidos = {normalize_text(u.barrio) for u in ubicaciones}
+    macro_zonas_a_eliminar = set()
+    
+    # 2. Evaluamos la jerarquía normalizando dinámicamente ambas partes
+    for macro, sub_sectores in JERARQUIA_ZONAS.items():
+        macro_norm = normalize_text(macro)
+        
+        if macro_norm in barrios_extraidos:
+            # Si el equivalente normalizado de algún sub-sector está en los barrios extraídos
+            if any(normalize_text(sub) in barrios_extraidos for sub in sub_sectores):
+                macro_zonas_a_eliminar.add(macro_norm)
+                
+    # 3. Retornamos filtrando las macro-zonas comparando también bajo normalización
+    return [u for u in ubicaciones if normalize_text(u.barrio) not in macro_zonas_a_eliminar]

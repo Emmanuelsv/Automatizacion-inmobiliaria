@@ -144,38 +144,48 @@ async def search_all_locations(
     max_price: int | None = None,
     min_area: int | None = None,
     min_rooms: int | None = None,
-    property_type: str | None = None,
+    property_type: str | list[str] | None = None,
 ) -> list[dict]:
     all_properties: list[dict] = []
     seen_ids: set = set()
-    seen_cities: set = set()  # <-- Evita llamadas duplicadas a la API por la misma ciudad
+    seen_cities: set = set()
+
+    # Normalizamos el tipo de inmueble a una lista para iterar
+    if isinstance(property_type, str):
+        tipos_a_buscar = [property_type]
+    elif isinstance(property_type, list):
+        tipos_a_buscar = property_type
+    else:
+        tipos_a_buscar = [None] # Si es None, busca todo
 
     for ubicacion in ubicaciones:
         ciudad = ubicacion["ciudad"]
         
-        if ciudad in seen_cities:
-            continue
-        seen_cities.add(ciudad)
+        # Iteramos sobre cada tipo solicitado
+        for tipo in tipos_a_buscar:
+            if ciudad in seen_cities and len(tipos_a_buscar) == 1: 
+                # Nota: Si buscas varios tipos, igual necesitas consultar la ciudad 
+                # para cada tipo, por eso ajustamos la lógica de caché si es necesario.
+                pass 
 
-        try:
-            properties = await search_properties(
-                city=ciudad,
-                zone=None,  # Buscamos la ciudad completa; el matcher se encarga del scoring por barrio/POI
-                min_price=min_price,
-                max_price=max_price,
-                min_area=min_area,
-                min_rooms=min_rooms,
-                property_type=property_type,
-            )
+            try:
+                properties = await search_properties(
+                    city=ciudad,
+                    zone=None,
+                    min_price=min_price,
+                    max_price=max_price,
+                    min_area=min_area,
+                    min_rooms=min_rooms,
+                    property_type=tipo,
+                )
 
-            for prop in properties:
-                prop_id = prop.get("id_property") or prop.get("id") or id(prop)
-                if prop_id not in seen_ids:
-                    seen_ids.add(prop_id)
-                    all_properties.append(prop)
-
-        except httpx.HTTPError as e:
-            print(f"Error buscando en {ciudad}: {e}")
-            continue
-
+                for prop in properties:
+                    prop_id = prop.get("id_property") or prop.get("id") or id(prop)
+                    if prop_id not in seen_ids:
+                        seen_ids.add(prop_id)
+                        all_properties.append(prop)
+            except Exception as e:
+                print(f"Error consultando {ciudad} para {tipo}: {e}")
+                continue
+                
     return all_properties

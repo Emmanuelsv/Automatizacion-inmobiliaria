@@ -5,7 +5,7 @@ Matching de propiedades vs solicitud con scoring por prioridad:
 3. Habitaciones — 20 pts
 4. Área — 15 pts
 5. Administración — 10 pts
-6. Tipo de inmueble — 20 pts
+6. Tipo de inmueble — 20 pts (filtro estricto si se especifica; admite uno o varios tipos, ej. "apartamento o casa")
 7. Características — 5 pts c/u
 8. Base por pasar todos los filtros — 5 pts
 
@@ -15,6 +15,7 @@ REGLAS DE UBICACIÓN (ESTRICTAS):
 - Si el usuario solicita un barrio específico, se descartan las propiedades
   cuya zona/título no coincida con ese barrio (o sus alias de zona).
 """
+import re  # <-- IMPORTANTE: Añadido para procesar las expresiones regulares de las unidades
 from app.normalizer import normalize_text
 from app.parser import SolicitudParseada
 from app.wasi_client import CITY_ID_MAP
@@ -34,7 +35,8 @@ ZONE_ALIASES: dict[str, list[str]] = {
     "poblado bajo": [
         "san lucas", "la florida", "la aguacatala", "lalinde",
         "la visitacion", "astorga", "provenza", "los gonzalez",
-        "alejandria", "parque lleras",
+        "alejandria", "parque lleras", "castropol",
+        "santa maria de los angeles",
     ],
     # === ENVIGADO ===
     "envigado alto": [
@@ -51,8 +53,14 @@ ZONE_ALIASES: dict[str, list[str]] = {
         "cumbres", "las cumbres",
         "la intermedia", "intermedia",
     ],
+    "envigado centro": [
+        "zona centro", "centro envigado", "envigado centro",
+        "Obrero", "el obrero", "barrio obrero",
+        "mesa", "la mesa", "bucarest"
+    ],
+
     "envigado bajo": [
-        "zuñiga", "zuniga",
+        "zuñiga", "bosques de zuñiga", "bosque de zuniga", "zuniga",
         "la frontera", "frontera", "el portal", "el dorado", "otra parte",
         "la abadia", "abadia", "la abadía", "abadía",
         "el campestre", "campestre",
@@ -64,12 +72,19 @@ ZONE_ALIASES: dict[str, list[str]] = {
         "zona centro", "centro envigado",
         "milan", "pontevedra", "san jose",
     ],
+    "viva envigado": [
+        "viva envigado", "centro comercial viva envigado", "cc viva envigado", "exito envigado",
+        "alcalá", "alcala", "jardín", "jardin", "jardines", "jardín de envigado",
+        "san marcos", "mesa", "la mesa", "oasis", "primavera","la primavera", 
+        "pontevedra", "la magnolia", "magnolia", "el dorado", "dorado", 
+    ],
 }
 
-# --- NUEVO: Cargar expansiones de POIs automáticamente ---
+# --- NUEVO: Cargar expansiones de POIs automáticamente (Protegiendo tus alias manuales) ---
 for poi_id, data in PUNTOS_INTERES.items():
     poi_name_norm = normalize_text(data["nombre"])
-    ZONE_ALIASES[poi_name_norm] = [normalize_text(b) for b in data["barrios_cercanos"]]
+    if poi_name_norm not in ZONE_ALIASES:  # <-- ESTA LÍNEA ES CRUCIAL
+        ZONE_ALIASES[poi_name_norm] = [normalize_text(b) for b in data["barrios_cercanos"]]
 
 # Mapeo de nombre de POI normalizado a sus palabras clave para búsquedas flexibles en descripción
 POI_MATCH_KEYWORDS: dict[str, list[str]] = {}
@@ -86,9 +101,42 @@ def match_properties(
 
     results: list[dict] = []
 
+    # =====================================================================
+    # 0. DETECTAR SI EL ASESOR BUSCA UNA UNIDAD/EDIFICIO ESPECÍFICO
+    # Extraemos el nombre una sola vez para no repetir el proceso en cada ciclo
+    # =====================================================================
+    msg_normalized = normalize_text(solicitud.mensaje_original)
+    unidades_detectadas = re.findall(
+        r'(?:unidad|edificio|conjunto|urbanizaci[oó]n|torre)(?:\s+(?:residencial|cerrada|abierta|campestre))?\s+([a-z0-9]+)', 
+        msg_normalized
+    )
+    # Agregamos las palabras de amenidades comunes para que no las tome como nombres de unidades
+    exclusiones = {
+        'de', 'con', 'en', 'el', 'la', 'los', 'las', 'un', 'una', 
+        'cerrada', 'abierta', 'residencial', 'campestre',
+        'piscina', 'gimnasio', 'gym', 'porteria', 'ascensor', 
+        'parqueadero', 'zonas', 'salon', 'juegos', 'cancha', 'social'
+    }
+    unidades_reales = [u for u in unidades_detectadas if u not in exclusiones]
+
     for prop in properties:
         score = 0
         passes = True
+
+        # =====================================================================
+        # FILTRO ESTRICTO: Si especificó unidad y el inmueble no la tiene, se descarta
+        # =====================================================================
+        if unidades_reales:
+            searchable_prop = normalize_text(" ".join(filter(None, [
+                str(prop.get("title") or ""),
+                str(prop.get("description") or ""),
+                str(prop.get("features") or ""),
+                str(prop.get("amenities") or ""),
+            ])))
+            
+            # Si el nombre de la unidad no está en NINGÚN lado de la propiedad, la saltamos
+            if not any(u in searchable_prop for u in unidades_reales):
+                continue
 
         # === 0. EXCLUSIÓN DE ZONAS (filtro estricto) ===
         if solicitud.ubicaciones_excluidas:
@@ -182,8 +230,18 @@ def match_properties(
                 for u in solicitud.ubicaciones
                 if u.barrio and normalize_text(u.barrio) != normalize_text(u.ciudad)
             ]
+            
+            # --- 🛡️ SALVAGUARDA ABSOLUTA CONTRA ERRORES DEL PARSER/IA ---
+            if solicitud.mensaje_original:
+                msg_norm = normalize_text(solicitud.mensaje_original)
+                # Si el cliente escribió "viva" en alguna parte pero la IA no lo procesó en el barrio
+                if any(kw in msg_norm for kw in ["viva envigado", "cc viva", "viva"]):
+                    if "viva envigado" not in specific_barrios:
+                        specific_barrios.append("viva envigado")
+            # ------------------------------------------------------------
+
             if specific_barrios:
-                # Expandir conceptos de zona o POIs (ej: "viva envigado" -> sus barrios colindantes)
+                # Expandir conceptos usando ÚNICAMENTE tus alias directos
                 expanded = []
                 for b in specific_barrios:
                     expanded.append(b)
@@ -195,15 +253,15 @@ def match_properties(
                     str(prop.get("zone") or ""),
                 ])))
                 title = normalize_text(str(prop.get("title", "")))
-                description = normalize_text(str(prop.get("description", ""))) # Incluimos la descripción de Wasi
+                description = normalize_text(str(prop.get("description", "")))
 
-                # Paso 1: zone_fields contra todos los barrios expandidos (datos estructurados).
+                # Paso 1: zone_fields contra todos los barrios expandidos autorizados por ti.
                 zone_match = bool(zone_fields) and any(b in zone_fields for b in expanded if b)
 
-                # Paso 2: título contra solo los barrios pedidos DIRECTAMENTE por el usuario
+                # Paso 2: título contra solo los barrios pedidos DIRECTAMENTE
                 title_match = any(b in title for b in specific_barrios if b)
 
-                # Paso 3: Búsqueda flexible por palabras clave de Puntos de Interés (POIs) en título y descripción
+                # Paso 3: Búsqueda flexible por palabras clave de POIs
                 poi_match = False
                 for b in specific_barrios:
                     if b in POI_MATCH_KEYWORDS:
@@ -215,13 +273,13 @@ def match_properties(
 
                 if matches:
                     score += 15
-                    # Bono extra si el texto de la propiedad menciona explícitamente el POI
                     if title_match or poi_match:
                         score += 5
                 else:
-                    # El usuario pidió una zona específica/POI y la propiedad no cuenta con ninguna coincidencia
+                    # Si no coincide con "viva envigado" ni sus barrios colindantes, se descarta la propiedad
                     if zone_fields or title or description:
                         continue
+
         # === 3. HABITACIONES (20 pts) ===
         rooms = _get_number(prop, ["rooms", "bedrooms", "habitaciones", "alcobas", "num_rooms", "num_bedrooms"])
         if solicitud.habitaciones_min:
@@ -255,12 +313,31 @@ def match_properties(
         if not passes:
             continue
 
-        # === 6. TIPO DE INMUEBLE (20 pts) ===
-        prop_type = str(prop.get("property_type", prop.get("tipo", ""))).lower()
-        if solicitud.tipo_inmueble and solicitud.tipo_inmueble.lower() in prop_type:
-            score += 20
+  
 
-        # === 7. CARACTERÍSTICAS (5 pts c/u) ===
+# === 6. TIPO DE INMUEBLE (20 pts) ===
+        prop_type = str(prop.get("property_type", prop.get("tipo", prop.get("property_type_label", "")))).lower()
+        prop_type_id = int(_get_number(prop, ["id_property_type"]))
+        
+        # Si la solicitud tiene tipos definidos, validamos contra la lista
+        if solicitud.tipo_inmueble:
+            from app.wasi_client import PROPERTY_TYPE_MAP  # Importación local para resolver IDs
+            
+            # Aseguramos que solicitud.tipo_inmueble sea iterable
+            tipos_solicitados = solicitud.tipo_inmueble if isinstance(solicitud.tipo_inmueble, list) else [solicitud.tipo_inmueble]
+            
+            # Traducimos los tipos de texto ("Apartamento") a sus IDs correspondientes de Wasi (2)
+            ids_solicitados = [PROPERTY_TYPE_MAP[t] for t in tipos_solicitados if t in PROPERTY_TYPE_MAP]
+            
+            # Verificamos si el tipo del inmueble coincide por texto O por su ID de Wasi
+            es_valido = any(t.lower() in prop_type for t in tipos_solicitados) or (prop_type_id in ids_solicitados)
+            
+            if not es_valido:
+                continue # Descartamos si no es ninguno de los tipos buscados
+            else:
+                score += 20
+
+        # === 7. CARACTERÍSTICAS (5 pts c/u, bono — nunca descarta) ===
         for caracteristica in solicitud.caracteristicas:
             if _has_feature(prop, caracteristica):
                 score += 5

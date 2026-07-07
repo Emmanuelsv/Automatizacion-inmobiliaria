@@ -87,9 +87,13 @@
 
 ## Campos calculados (agregados por el matcher)
 
-| Campo          | Tipo | Notas                                         |
-|----------------|------|-----------------------------------------------|
-| `match_score`  | int  | Puntaje de relevancia (0-100 aprox)           |
+| Campo               | Tipo       | Notas                                                            |
+|---------------------|------------|-------------------------------------------------------------------|
+| `matched_criteria`  | list[str]  | Criterios verificados y cumplidos, solo para trazabilidad/debug. No se usa para ordenar ni para decidir inclusión — la inclusión ya es binaria (ver skill `wasi-domain`). |
+
+> El antiguo campo `match_score` (int 0-100) fue eliminado junto con el
+> sistema de scoring. El matching ahora es estrictamente booleano: una
+> propiedad se incluye solo si cumple el 100% de los criterios solicitados.
 
 ---
 

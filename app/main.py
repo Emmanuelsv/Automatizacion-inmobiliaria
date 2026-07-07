@@ -1,16 +1,17 @@
-from contextlib import asynccontextmanager
+# app/main.py
 
 from fastapi import FastAPI
 from pydantic import BaseModel
 import uvicorn
 
-from app.parser import parse_message
+# Modifica esta línea para incluir la nueva función:
+from app.parser import parse_message, optimizar_ubicaciones 
 from app.wasi_client import search_all_locations
 from app.matcher import match_properties
 from app.message_builder import build_response_message
 from app.config import APP_PORT, COUNTRY_CODE
 from app.dedup import init_db, is_duplicate
-
+from contextlib import asynccontextmanager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -52,19 +53,18 @@ async def debug_wasi(payload: WebhookPayload):
     """Retorna los campos crudos que devuelve Wasi para diagnóstico."""
     solicitud = parse_message(payload.text)
     if not solicitud.ubicaciones:
-        return {"error": "no_locations", "parsed": _solicitud_to_dict(solicitud)}
-    ubicaciones_dict = [{"barrio": u.barrio, "ciudad": u.ciudad} for u in solicitud.ubicaciones]
-    try:
-        properties = await search_all_locations(ubicaciones=ubicaciones_dict)
-        sample = properties[:2] if properties else []
-        return {
-            "total_wasi": len(properties),
-            "sample_keys": list(sample[0].keys()) if sample else [],
-            "sample": sample,
-            "parsed": _solicitud_to_dict(solicitud),
-        }
-    except Exception as e:
-        return {"error": str(e), "parsed": _solicitud_to_dict(solicitud)}
+        return {"error": "No se detectaron ubicaciones"}
+    
+    # Adaptación: Eliminamos filtros restrictivos de área y habitaciones en la consulta a Wasi
+    # para dejar que el matcher haga el trabajo pesado.
+    properties = await search_all_locations(
+        ubicaciones=[{"barrio": u.barrio, "ciudad": u.ciudad} for u in solicitud.ubicaciones],
+        min_price=solicitud.presupuesto.min_price,
+        max_price=solicitud.presupuesto.max_price,
+        property_type=solicitud.tipo_inmueble,
+    )
+    return {"count": len(properties), "sample": properties[:3]}
+
 
 
 @app.post("/parse", response_model=dict)
@@ -103,6 +103,7 @@ def _extract_phone(sender: str | None) -> str | None:
     if number.startswith(COUNTRY_CODE) and len(number) > len(COUNTRY_CODE):
         number = number[len(COUNTRY_CODE):]
     return number if number.isdigit() and 8 <= len(number) <= 12 else None
+
 
 
 @app.post("/process", response_model=ProcessResponse)
@@ -147,10 +148,17 @@ async def process_message(payload: WebhookPayload):
             solicitud=_solicitud_to_dict(solicitud),
         )
 
+    # Optimizamos macro-zonas
+    solicitud.ubicaciones = optimizar_ubicaciones(solicitud.ubicaciones)
+
     ubicaciones_dict = [
         {"barrio": u.barrio, "ciudad": u.ciudad}
         for u in solicitud.ubicaciones
     ]
+
+    wasi_prop_type = None
+    if solicitud.tipo_inmueble and len(solicitud.tipo_inmueble) == 1:
+        wasi_prop_type = solicitud.tipo_inmueble[0]
 
     try:
         properties = await search_all_locations(
@@ -159,8 +167,22 @@ async def process_message(payload: WebhookPayload):
             max_price=solicitud.presupuesto.max_price,
             min_area=solicitud.area_min,
             min_rooms=solicitud.habitaciones_min,
-            property_type=solicitud.tipo_inmueble,
+            property_type=wasi_prop_type,
         )
+
+        # =========================================================================
+        # ENCARGADOS: Filtrado definitivo por ID de Wasi (Rápido y Seguro)
+        # =========================================================================
+        # ID Juan Camilo Vargas = 219100
+        # ID Nicolás Cadavid    = 219281
+        IDS_ASESORES_AUTORIZADOS = {219100, 219281}
+        
+        properties = [
+            p for p in properties 
+            if p.get("id_user") in IDS_ASESORES_AUTORIZADOS
+        ]
+        # =========================================================================
+
     except Exception as e:
         return ProcessResponse(
             es_solicitud=True,
@@ -171,6 +193,7 @@ async def process_message(payload: WebhookPayload):
             solicitud=_solicitud_to_dict(solicitud),
         )
 
+    # El bloque final queda fuera del try/except, alineado con el inicio del 'try'
     matched = match_properties(properties, solicitud)
     messages = build_response_message(matched, solicitud)
 
@@ -182,6 +205,10 @@ async def process_message(payload: WebhookPayload):
         total_resultados=len(matched),
         solicitud=_solicitud_to_dict(solicitud),
     )
+
+
+
+
 
 
 def _solicitud_to_dict(solicitud) -> dict:

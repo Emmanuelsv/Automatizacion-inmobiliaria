@@ -39,45 +39,66 @@ BARRIOS: dict[str, dict[str, str]] = {
 # =========================================
     # PUNTOS DE INTERÉS / HITOS URBANOS (POIs)
     # =========================================
-    "viva envigado": {"nombre": "Envigado Bajo", "ciudad": "Envigado"},
-    "viva": {"nombre": "Envigado Bajo", "ciudad": "Envigado"},
-    "exito envigado": {"nombre": "Envigado Bajo", "ciudad": "Envigado"},
-    "exito de envigado": {"nombre": "Envigado Bajo", "ciudad": "Envigado"},
-    "cc viva": {"nombre": "Envigado Bajo", "ciudad": "Envigado"},
-    "centro comercial viva": {"nombre": "Envigado Bajo", "ciudad": "Envigado"},
+    "viva envigado": {"nombre": "viva envigado", "ciudad": "Envigado"},
+    "exito envigado": {"nombre": "viva envigado", "ciudad": "Envigado"},
+    "exito de envigado": {"nombre": "viva envigado", "ciudad": "Envigado"},
+    "cc viva envigado": {"nombre": "viva envigado", "ciudad": "Envigado"},
+    "centro comercial viva envigado": {"nombre": "viva envigado", "ciudad": "Envigado"},
+    
+    "viva palmas": {"nombre": "Alto de Las Palmas", "ciudad": "Envigado"},
+    "cc viva palmas": {"nombre": "Alto de Las Palmas", "ciudad": "Envigado"},
+    "centro comercial viva palmas": {"nombre": "Alto de Las Palmas", "ciudad": "Envigado"},
+
+    
+
     # =========================================
     # ENVIGADO POR ZONA (ALTA / BAJA)
     # Conceptos amplios que se expanden a barrios reales en matcher.py
     # =========================================
 
     # Envigado parte alta / zona de loma
-    "envigado alto": {"nombre": "Envigado Alto", "ciudad": "Envigado"},
-    "envigado parte alta": {"nombre": "Envigado Alto", "ciudad": "Envigado"},
-    "parte alta de envigado": {"nombre": "Envigado Alto", "ciudad": "Envigado"},
-    "parte alta envigado": {"nombre": "Envigado Alto", "ciudad": "Envigado"},
-    "zona alta de envigado": {"nombre": "Envigado Alto", "ciudad": "Envigado"},
-    "zona alta envigado": {"nombre": "Envigado Alto", "ciudad": "Envigado"},
-    "envigado zona alta": {"nombre": "Envigado Alto", "ciudad": "Envigado"},
-    "sector alto de envigado": {"nombre": "Envigado Alto", "ciudad": "Envigado"},
-    "loma de envigado": {"nombre": "Envigado Alto", "ciudad": "Envigado"},
-    "lomas de envigado": {"nombre": "Envigado Alto", "ciudad": "Envigado"},
+    "envigado alto": {"nombre": "envigado alto", "ciudad": "Envigado"},
+    "envigado parte alta": {"nombre": "envigado alto", "ciudad": "Envigado"},
+    "parte alta de envigado": {"nombre": "envigado alto", "ciudad": "Envigado"},
+    "parte alta envigado": {"nombre": "envigado alto", "ciudad": "Envigado"},
+    "zona alta de envigado": {"nombre": "envigado alto", "ciudad": "Envigado"},
+    "zona alta envigado": {"nombre": "envigado alto", "ciudad": "Envigado"},
+    "envigado zona alta": {"nombre": "envigado alto", "ciudad": "Envigado"},
+    "sector alto de envigado": {"nombre": "envigado alto", "ciudad": "Envigado"},
+    "loma de envigado": {"nombre": "envigado alto", "ciudad": "Envigado"},
+    "lomas de envigado": {"nombre": "envigado alto", "ciudad": "Envigado"},
 
     # Envigado parte baja / zona plana
-    "envigado bajo": {"nombre": "Envigado Bajo", "ciudad": "Envigado"},
-    "envigado parte baja": {"nombre": "Envigado Bajo", "ciudad": "Envigado"},
-    "parte baja de envigado": {"nombre": "Envigado Bajo", "ciudad": "Envigado"},
-    "parte baja envigado": {"nombre": "Envigado Bajo", "ciudad": "Envigado"},
-    "zona baja de envigado": {"nombre": "Envigado Bajo", "ciudad": "Envigado"},
-    "zona baja envigado": {"nombre": "Envigado Bajo", "ciudad": "Envigado"},
-    "envigado zona baja": {"nombre": "Envigado Bajo", "ciudad": "Envigado"},
-    "envigado parte plana": {"nombre": "Envigado Bajo", "ciudad": "Envigado"},
-    "parte plana de envigado": {"nombre": "Envigado Bajo", "ciudad": "Envigado"},
-    "parte plana envigado": {"nombre": "Envigado Bajo", "ciudad": "Envigado"},
-    "zona plana de envigado": {"nombre": "Envigado Bajo", "ciudad": "Envigado"},
-    "zona plana envigado": {"nombre": "Envigado Bajo", "ciudad": "Envigado"},
-    "envigado zona plana": {"nombre": "Envigado Bajo", "ciudad": "Envigado"},
-    "sector plano de envigado": {"nombre": "Envigado Bajo", "ciudad": "Envigado"},
-    "envigado plano": {"nombre": "Envigado Bajo", "ciudad": "Envigado"},
+    "envigado bajo": {"nombre": "envigado bajo", "ciudad": "Envigado"},
+    "envigado parte baja": {"nombre": "envigado bajo", "ciudad": "Envigado"},
+    "parte baja de envigado": {"nombre": "envigado bajo", "ciudad": "Envigado"},
+    "parte baja envigado": {"nombre": "envigado bajo", "ciudad": "Envigado"},
+    "zona baja de envigado": {"nombre": "envigado bajo", "ciudad": "Envigado"},
+    "zona baja envigado": {"nombre": "envigado bajo", "ciudad": "Envigado"},
+    "envigado zona baja": {"nombre": "envigado bajo", "ciudad": "Envigado"},
+    "envigado parte plana": {"nombre": "envigado bajo", "ciudad": "Envigado"},
+    "parte plana de envigado": {"nombre": "envigado bajo", "ciudad": "Envigado"},
+    "parte plana envigado": {"nombre": "envigado bajo", "ciudad": "Envigado"},
+    "zona plana de envigado": {"nombre": "envigado bajo", "ciudad": "Envigado"},
+    "zona plana envigado": {"nombre": "envigado bajo", "ciudad": "Envigado"},
+    "envigado zona plana": {"nombre": "envigado bajo", "ciudad": "Envigado"},
+    "sector plano de envigado": {"nombre": "envigado bajo", "ciudad": "Envigado"},
+    "envigado plano": {"nombre": "envigado bajo", "ciudad": "Envigado"},
+
+    # Envigado zona centro 
+    "envigado centro": {"nombre": "envigado centro", "ciudad": "Envigado"},
+    "centro de envigado": {"nombre": "envigado centro", "ciudad": "Envigado"},
+    "zona centro de envigado": {"nombre": "envigado centro", "ciudad": "Envigado"},
+    "centro envigado": {"nombre": "envigado centro", "ciudad": "Envigado"},
+    "envigado zona centro": {"nombre": "envigado centro", "ciudad": "Envigado"},
+    "parte centro de envigado": {"nombre": "envigado centro", "ciudad": "Envigado"},
+    "parte centro envigado": {"nombre": "envigado centro", "ciudad": "Envigado"},
+    "sector centro de envigado": {"nombre": "envigado centro", "ciudad": "Envigado"},
+    "Envigado parte centro": {"nombre": "envigado centro", "ciudad": "Envigado"},
+    "Envigado parte central": {"nombre": "envigado centro", "ciudad": "Envigado"},
+    "zona central de envigado": {"nombre": "envigado centro", "ciudad": "Envigado"},
+    "Envigado central": {"nombre": "envigado centro", "ciudad": "Envigado"},
+
 
 
     # =========================================
@@ -129,9 +150,7 @@ BARRIOS: dict[str, dict[str, str]] = {
     "jardines": {"nombre": "Jardines", "ciudad": "Envigado"},
     "san marcos": {"nombre": "San Marcos", "ciudad": "Envigado"},
     "mesa": {"nombre": "Mesa", "ciudad": "Envigado"},
-    "zona centro": {"nombre": "Zona Centro", "ciudad": "Envigado"},
-    "centro envigado": {"nombre": "Zona Centro", "ciudad": "Envigado"},
-    "zona centro envigado": {"nombre": "Zona Centro", "ciudad": "Envigado"},
+
 
 
     # =========================================
@@ -173,8 +192,8 @@ BARRIOS: dict[str, dict[str, str]] = {
     "el salado": {"nombre": "El Salado", "ciudad": "Envigado"},
     "salado": {"nombre": "El Salado", "ciudad": "Envigado"},
 
-    "las palmas envigado": {"nombre": "Las Palmas", "ciudad": "Envigado"},
-    "palmas envigado": {"nombre": "Las Palmas", "ciudad": "Envigado"},
+    "las palmas envigado": {"nombre": "Alto de Las Palmas", "ciudad": "Envigado"},
+    "palmas envigado": {"nombre": "Alto de Las Palmas", "ciudad": "Envigado"},
     "alto de palmas": {"nombre": "Alto de Las Palmas", "ciudad": "Envigado"},
     "alto de las palmas": {"nombre": "Alto de Las Palmas", "ciudad": "Envigado"},
 
