@@ -18,7 +18,7 @@ SAMPLE_MESSAGES = [
 MYE Inmobiliaria 🏡""",
         "expected": {
             "es_solicitud": True,
-            "tipo_inmueble": "Apartamento",
+            "tipo_inmueble": ["Apartamento"],
             "presupuesto_exact": 700_000_000,
             "habitaciones_min": 2,
             "area_min": 80,
@@ -38,7 +38,7 @@ Asesor: Carlos Pérez
 Cel: 3107654321""",
         "expected": {
             "es_solicitud": True,
-            "tipo_inmueble": "Casa",
+            "tipo_inmueble": ["Casa"],
             "presupuesto_exact": 500_000_000,
             "habitaciones_min": 3,
             "asesor": "Carlos Pérez",
@@ -62,7 +62,7 @@ Contacto: 3001234567
 Asesor: María López""",
         "expected": {
             "es_solicitud": True,
-            "tipo_inmueble": "Apartamento",
+            "tipo_inmueble": ["Apartamento"],
             "presupuesto_exact": 400_000_000,
             "habitaciones_min": 2,
             "area_min": 60,
@@ -83,7 +83,7 @@ Contacto: 3209876543
 MYE Inmobiliaria""",
         "expected": {
             "es_solicitud": True,
-            "tipo_inmueble": "Apartamento",
+            "tipo_inmueble": ["Apartamento"],
             "presupuesto_exact": 850_000_000,
             "habitaciones_min": 3,
             "area_min": 100,

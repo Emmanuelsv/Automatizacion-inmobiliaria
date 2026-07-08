@@ -140,6 +140,9 @@ BARRIOS: dict[str, dict[str, str]] = {
     "la intermedia": {"nombre": "La Intermedia", "ciudad": "Envigado"},
     "intermedia": {"nombre": "La Intermedia", "ciudad": "Envigado"},
 
+    "la calleja": {"nombre": "La Calleja", "ciudad": "Envigado"},
+    "calleja": {"nombre": "La Calleja", "ciudad": "Envigado"},
+    "las callejas": {"nombre": "La Calleja", "ciudad": "Envigado"},
     "las antillas": {"nombre": "Las Antillas", "ciudad": "Envigado"},
     "la paz": {"nombre": "La Paz", "ciudad": "Envigado"},
     "la sebastiana": {"nombre": "La Sebastiana", "ciudad": "Envigado"},
@@ -150,6 +153,10 @@ BARRIOS: dict[str, dict[str, str]] = {
     "jardines": {"nombre": "Jardines", "ciudad": "Envigado"},
     "san marcos": {"nombre": "San Marcos", "ciudad": "Envigado"},
     "mesa": {"nombre": "Mesa", "ciudad": "Envigado"},
+    "loma de los mesa": {"nombre": "Mesa", "ciudad": "Envigado"},
+    "centro": {"nombre": "Centro", "ciudad": "Medellín"},
+    "la magnolia": {"nombre": "La Magnolia", "ciudad": "Envigado"},
+    "magnolia": {"nombre": "La Magnolia", "ciudad": "Envigado"},
 
 
 
@@ -163,7 +170,10 @@ BARRIOS: dict[str, dict[str, str]] = {
     "el esmeraldal": {"nombre": "El Esmeraldal", "ciudad": "Envigado"},
     "loma del esmeraldal": {"nombre": "El Esmeraldal", "ciudad": "Envigado"},
     "esmeraldal": {"nombre": "El Esmeraldal", "ciudad": "Envigado"},
+    "esmeraldaln": {"nombre": "El Esmeraldal", "ciudad": "Envigado"},
 
+    "loma de los yarumos": {"nombre": "Loma de los Yarumos", "ciudad": "Envigado"},
+    "yarumos": {"nombre": "Loma de los Yarumos", "ciudad": "Envigado"},
     "loma de los balsos": {"nombre": "Loma de Los Balsos", "ciudad": "Envigado"},
     "los balsos": {"nombre": "Loma de Los Balsos", "ciudad": "Envigado"},
     "balsos": {"nombre": "Loma de Los Balsos", "ciudad": "Envigado"},
@@ -208,6 +218,9 @@ BARRIOS: dict[str, dict[str, str]] = {
     "cumbres": {"nombre": "Cumbres", "ciudad": "Envigado"},
     "las cumbres": {"nombre": "Cumbres", "ciudad": "Envigado"},
 
+    "la cuenca": {"nombre": "La Cuenca", "ciudad": "Envigado"},
+    "cuenca": {"nombre": "La Cuenca", "ciudad": "Envigado"},
+
     "milan": {"nombre": "Milán", "ciudad": "Envigado"},
     "milán": {"nombre": "Milán", "ciudad": "Envigado"},
 
@@ -234,12 +247,15 @@ BARRIOS: dict[str, dict[str, str]] = {
     "sector alto del poblado": {"nombre": "Poblado Alto", "ciudad": "Medellín"},
 
     "poblado bajo": {"nombre": "Poblado Bajo", "ciudad": "Medellín"},
+    "poblado no muy alto": {"nombre": "Poblado Bajo", "ciudad": "Medellín"},
+    "poblado que no sea alto": {"nombre": "Poblado Bajo", "ciudad": "Medellín"},
     "zona baja del poblado": {"nombre": "Poblado Bajo", "ciudad": "Medellín"},
     "poblado zona baja": {"nombre": "Poblado Bajo", "ciudad": "Medellín"},
     "zona plana del poblado": {"nombre": "Poblado Bajo", "ciudad": "Medellín"},
     "poblado zona plana": {"nombre": "Poblado Bajo", "ciudad": "Medellín"},
     "sector plano del poblado": {"nombre": "Poblado Bajo", "ciudad": "Medellín"},
 
+    "vizcaya": {"nombre": "Vizcaya", "ciudad": "Medellín"},
     "san lucas": {"nombre": "San Lucas", "ciudad": "Medellín"},
     "castropol": {"nombre": "Castropol", "ciudad": "Medellín"},
     "manila": {"nombre": "Manila", "ciudad": "Medellín"},
@@ -256,10 +272,13 @@ BARRIOS: dict[str, dict[str, str]] = {
     "los gonzalez": {"nombre": "Los González", "ciudad": "Medellín"},
     "el diamante": {"nombre": "El Diamante", "ciudad": "Medellín"},
     "diamante": {"nombre": "El Diamante", "ciudad": "Medellín"},
+    "benedictinos": {"nombre": "Benedictinos", "ciudad": "Medellín"},
     "el castillo": {"nombre": "El Castillo", "ciudad": "Medellín"},
     "castillo": {"nombre": "El Castillo", "ciudad": "Medellín"},
     "alejandria": {"nombre": "Alejandría", "ciudad": "Medellín"},
     "alejandría": {"nombre": "Alejandría", "ciudad": "Medellín"},
+    "loma de alejandria": {"nombre": "Alejandría", "ciudad": "Medellín"},
+    "loma de alejandría": {"nombre": "Alejandría", "ciudad": "Medellín"},
     "la florida": {"nombre": "La Florida", "ciudad": "Medellín"},
     
     "oviedo": {"nombre": "Oviedo", "ciudad": "Medellín"},
@@ -270,6 +289,15 @@ BARRIOS: dict[str, dict[str, str]] = {
     "la aguacatala": {"nombre": "La Aguacatala", "ciudad": "Medellín"},
     "santa maria de los angeles": {"nombre": "Santa María de Los Ángeles", "ciudad": "Medellín"},
     "santa maría de los ángeles": {"nombre": "Santa María de Los Ángeles", "ciudad": "Medellín"},
+
+    # Zonas planas (opuesto a loma)
+    "zona plana medellin": {"nombre": "Zona Plana Medellín", "ciudad": "Medellín"},
+    "zona plana medellín": {"nombre": "Zona Plana Medellín", "ciudad": "Medellín"},
+    "zona plana poblado": {"nombre": "Zona Plana Poblado", "ciudad": "Medellín"},
+    "zona plana sabaneta": {"nombre": "Zona Plana Sabaneta", "ciudad": "Sabaneta"},
+    "zona plana la estrella": {"nombre": "Zona Plana La Estrella", "ciudad": "La Estrella"},
+    "zona plana itagüí": {"nombre": "Zona Plana Itagüí", "ciudad": "Itagüí"},
+    "zona plana itagui": {"nombre": "Zona Plana Itagüí", "ciudad": "Itagüí"},
     "los balsos": {"nombre": "Los Balsos", "ciudad": "Medellín"},
     "balsos": {"nombre": "Los Balsos", "ciudad": "Medellín"},
     "altos del poblado": {"nombre": "Altos del Poblado", "ciudad": "Medellín"},
@@ -277,6 +305,7 @@ BARRIOS: dict[str, dict[str, str]] = {
     "villa carlota": {"nombre": "Villa Carlota", "ciudad": "Medellín"},
     "las lomas": {"nombre": "Las Lomas", "ciudad": "Medellín"},
     "loma de los parra": {"nombre": "Loma de Los Parra", "ciudad": "Medellín"},
+    "los parra": {"nombre": "Loma de Los Parra", "ciudad": "Medellín"},
     "loma de los gonzalez": {"nombre": "Loma de Los González", "ciudad": "Medellín"},
     "loma de los gonzález": {"nombre": "Loma de Los González", "ciudad": "Medellín"},
     "el campestre": {"nombre": "El Campestre", "ciudad": "Medellín"},
@@ -353,6 +382,7 @@ BARRIOS: dict[str, dict[str, str]] = {
     # =========================================
 
     "san diego": {"nombre": "San Diego", "ciudad": "Medellín"},
+    "ciudad del rio": {"nombre": "Ciudad del Río", "ciudad": "Medellín"},
     "boston": {"nombre": "Boston", "ciudad": "Medellín"},
     "la candelaria": {"nombre": "La Candelaria", "ciudad": "Medellín"},
 
@@ -362,6 +392,16 @@ BARRIOS: dict[str, dict[str, str]] = {
     # =========================================
 
     "laureles": {"nombre": "Laureles", "ciudad": "Medellín"},
+    "la castellana": {"nombre": "La Castellana", "ciudad": "Medellín"},
+    "castellana": {"nombre": "La Castellana", "ciudad": "Medellín"},
+    "san joaquin": {"nombre": "San Joaquín", "ciudad": "Medellín"},
+    "san joaquín": {"nombre": "San Joaquín", "ciudad": "Medellín"},
+    "bolivariana": {"nombre": "Bolivariana", "ciudad": "Medellín"},
+    "carlos e restrepo": {"nombre": "Carlos E. Restrepo", "ciudad": "Medellín"},
+    "carlos e. restrepo": {"nombre": "Carlos E. Restrepo", "ciudad": "Medellín"},
+    "aeroparque juan pablo ii": {"nombre": "Aeroparque Juan Pablo II", "ciudad": "Medellín"},
+    "nueva villa de aburra": {"nombre": "Nueva Villa de Aburrá", "ciudad": "Medellín"},
+    "barrio colombia": {"nombre": "Barrio Colombia", "ciudad": "Medellín"},
     "la america": {"nombre": "La América", "ciudad": "Medellín"},
     "calasanz": {"nombre": "Calasanz", "ciudad": "Medellín"},
     "estadio": {"nombre": "Estadio", "ciudad": "Medellín"},
@@ -380,6 +420,17 @@ BARRIOS: dict[str, dict[str, str]] = {
     "mayorca": {"nombre": "Mayorca", "ciudad": "Sabaneta"},
     "pan de azucar": {"nombre": "Pan de Azúcar", "ciudad": "Sabaneta"},
     "san jose": {"nombre": "San José", "ciudad": "Sabaneta"},
+    "la barquereña": {"nombre": "La Barquereña", "ciudad": "Sabaneta"},
+    "barquereña": {"nombre": "La Barquereña", "ciudad": "Sabaneta"},
+    "entreamigos": {"nombre": "Entreamigos", "ciudad": "Sabaneta"},
+    "holanda": {"nombre": "Holanda", "ciudad": "Sabaneta"},
+    "san joaquin": {"nombre": "San Joaquín", "ciudad": "Sabaneta"},
+    "san joaquín": {"nombre": "San Joaquín", "ciudad": "Sabaneta"},
+    "maria auxiliadora": {"nombre": "María Auxiliadora", "ciudad": "Sabaneta"},
+    "maría auxiliadora": {"nombre": "María Auxiliadora", "ciudad": "Sabaneta"},
+    "las casitas": {"nombre": "Las Casitas", "ciudad": "Sabaneta"},
+    "ardillas": {"nombre": "Ardillas", "ciudad": "Sabaneta"},
+    "asdesillas": {"nombre": "Asdesillas", "ciudad": "Sabaneta"},
 
     # === BELLO ===
     "niquia": {"nombre": "Niquía", "ciudad": "Bello"},
@@ -436,8 +487,8 @@ PUNTOS_INTERES: dict[str, dict[str, any]] = {
     "parque envigado": {
         "nombre": "Parque de Envigado",
         "ciudad": "Envigado",
-        "keywords": ["parque de envigado", "parque envigado"],
-        "barrios_cercanos": ["Zona Centro", "Alcalá", "Mesa"]
+        "keywords": ["parque de envigado", "parque envigado", "cerca al parque"],
+        "barrios_cercanos": ["Centro", "San Marcos", "La Magnolia", "Jardines", "El Dorado"]
     },
     "el tesoro": {
         "nombre": "El Tesoro",
@@ -478,7 +529,13 @@ PUNTOS_INTERES: dict[str, dict[str, any]] = {
     "parque sabaneta": {
         "nombre": "Parque de Sabaneta",
         "ciudad": "Sabaneta",
-        "keywords": ["parque de sabaneta", "parque sabaneta"],
-        "barrios_cercanos": ["San José", "Calle Larga", "Zona Centro"]
+        "keywords": ["parque de sabaneta", "parque sabaneta", "cerca al parque"],
+        "barrios_cercanos": ["Calle Larga", "La Barquereña", "Entreamigos", "Holanda", "San Joaquín", "María Auxiliadora", "Las Casitas"]
+    },
+    "parque el poblado": {
+        "nombre": "Parque El Poblado",
+        "ciudad": "Medellín",
+        "keywords": ["parque el poblado", "parque lleras", "lleras", "cerca al parque"],
+        "barrios_cercanos": ["Manila", "Astorga", "Lalinde", "Patio Bonito"]
     }
 }

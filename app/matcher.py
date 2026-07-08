@@ -1,13 +1,6 @@
 """
-Matching de propiedades vs solicitud con scoring por prioridad:
-1. Precio (obligatorio) — hasta 30 pts por proximidad
-2. Ubicación (ciudad + barrio) — hasta 30 pts (ciudad es filtro estricto)
-3. Habitaciones — 20 pts
-4. Área — 15 pts
-5. Administración — 10 pts
-6. Tipo de inmueble — 20 pts (filtro estricto si se especifica; admite uno o varios tipos, ej. "apartamento o casa")
-7. Características — 5 pts c/u
-8. Base por pasar todos los filtros — 5 pts
+Matching de propiedades vs solicitud con filtrado booleano estricto:
+Cada criterio es un filtro duro (pasa/no pasa). Sin sistema de puntos.
 
 REGLAS DE UBICACIÓN (ESTRICTAS):
 - Si el usuario solicita una ciudad (Medellín, Envigado, Sabaneta, etc.),
@@ -16,6 +9,7 @@ REGLAS DE UBICACIÓN (ESTRICTAS):
   cuya zona/título no coincida con ese barrio (o sus alias de zona).
 """
 import re  # <-- IMPORTANTE: Añadido para procesar las expresiones regulares de las unidades
+from datetime import date
 from app.normalizer import normalize_text
 from app.parser import SolicitudParseada
 from app.wasi_client import CITY_ID_MAP
@@ -78,6 +72,17 @@ ZONE_ALIASES: dict[str, list[str]] = {
         "san marcos", "mesa", "la mesa", "oasis", "primavera","la primavera", 
         "pontevedra", "la magnolia", "magnolia", "el dorado", "dorado", 
     ],
+    # === ZONAS PLANAS (opuesto a loma) ===
+    "zona plana medellin": [
+        "laureles", "estadio", "san joaquin", "bolivariana", "carlos e restrepo",
+        "aeroparque juan pablo ii", "belen fatima", "belen rosales", "rosales",
+        "nueva villa de aburra", "manila", "astorga", "barrio colombia",
+        "castropol", "patio bonito", "la aguacatala", "santa maria de los angeles",
+    ],
+    "zona plana poblado": [
+        "manila", "astorga", "barrio colombia", "castropol", "patio bonito",
+        "la aguacatala", "santa maria de los angeles",
+    ],
 }
 
 # --- NUEVO: Cargar expansiones de POIs automáticamente (Protegiendo tus alias manuales) ---
@@ -120,8 +125,6 @@ def match_properties(
     unidades_reales = [u for u in unidades_detectadas if u not in exclusiones]
 
     for prop in properties:
-        score = 0
-        passes = True
 
         # =====================================================================
         # FILTRO ESTRICTO: Si especificó unidad y el inmueble no la tiene, se descarta
@@ -133,8 +136,7 @@ def match_properties(
                 str(prop.get("features") or ""),
                 str(prop.get("amenities") or ""),
             ])))
-            
-            # Si el nombre de la unidad no está en NINGÚN lado de la propiedad, la saltamos
+
             if not any(u in searchable_prop for u in unidades_reales):
                 continue
 
@@ -156,23 +158,15 @@ def match_properties(
             if any(k in zone_text_excl for k in excl_keys if k):
                 continue
 
-        # === 1. PRECIO (filtro obligatorio + hasta 30 pts) ===
+        # === 1. PRECIO (filtro duro) ===
         price = _get_number(prop, ["sale_price", "price", "valor_venta", "precio_venta", "precio"])
         if solicitud.presupuesto.min_price and solicitud.presupuesto.max_price and price > 0:
             if price < solicitud.presupuesto.min_price or price > solicitud.presupuesto.max_price:
-                passes = False
-            elif solicitud.presupuesto.exact and solicitud.presupuesto.exact > 0:
-                diff = abs(price - solicitud.presupuesto.exact)
-                proximity = 1 - (diff / solicitud.presupuesto.exact)
-                score += proximity * 30
+                continue
 
-        if not passes:
-            continue
+        # === 2. UBICACIÓN (ciudad + barrio, filtro duro) ===
 
-        # === 2. UBICACIÓN (ciudad estricta + hasta 30 pts totales) ===
-
-        # 2a. CIUDAD: filtro DURO. Si el usuario pidió ciudades específicas,
-        # se descartan propiedades de otros municipios. No hay excepciones.
+        # 2a. CIUDAD: filtro DURO.
         if solicitud.ubicaciones:
             requested_city_ids = {
                 CITY_ID_MAP[u.ciudad]
@@ -196,18 +190,14 @@ def match_properties(
 
                 city_match = False
 
-                # Coincidencia por ID (más confiable)
                 if requested_city_ids and prop_city_id:
                     if int(prop_city_id) in requested_city_ids:
                         city_match = True
 
-                # Coincidencia por nombre (fallback)
                 if not city_match and requested_city_names and prop_city_name:
                     if prop_city_name in requested_city_names:
                         city_match = True
 
-                # Último fallback: si la propiedad no trae ningún campo de ciudad,
-                # buscar el nombre de la ciudad solicitada en zone_label/título.
                 if not city_match and not prop_city_id and not prop_city_name:
                     zone_text = normalize_text(" ".join(filter(None, [
                         str(prop.get("zone_label") or ""),
@@ -217,31 +207,23 @@ def match_properties(
                         city_match = True
 
                 if not city_match:
-                    # Otra ciudad → descarta sin importar nada más.
                     continue
 
-                # Ciudad correcta: 15 pts base por ubicación
-                score += 15
-
-        # 2b. BARRIO: filtro estricto si se pidió uno o un POI + 15 pts adicionales
+        # 2b. BARRIO: filtro estricto si se pidió uno o un POI
         if solicitud.ubicaciones:
             specific_barrios = [
                 normalize_text(u.barrio)
                 for u in solicitud.ubicaciones
                 if u.barrio and normalize_text(u.barrio) != normalize_text(u.ciudad)
             ]
-            
-            # --- 🛡️ SALVAGUARDA ABSOLUTA CONTRA ERRORES DEL PARSER/IA ---
+
             if solicitud.mensaje_original:
                 msg_norm = normalize_text(solicitud.mensaje_original)
-                # Si el cliente escribió "viva" en alguna parte pero la IA no lo procesó en el barrio
                 if any(kw in msg_norm for kw in ["viva envigado", "cc viva", "viva"]):
                     if "viva envigado" not in specific_barrios:
                         specific_barrios.append("viva envigado")
-            # ------------------------------------------------------------
 
             if specific_barrios:
-                # Expandir conceptos usando ÚNICAMENTE tus alias directos
                 expanded = []
                 for b in specific_barrios:
                     expanded.append(b)
@@ -255,13 +237,9 @@ def match_properties(
                 title = normalize_text(str(prop.get("title", "")))
                 description = normalize_text(str(prop.get("description", "")))
 
-                # Paso 1: zone_fields contra todos los barrios expandidos autorizados por ti.
                 zone_match = bool(zone_fields) and any(b in zone_fields for b in expanded if b)
-
-                # Paso 2: título contra solo los barrios pedidos DIRECTAMENTE
                 title_match = any(b in title for b in specific_barrios if b)
 
-                # Paso 3: Búsqueda flexible por palabras clave de POIs
                 poi_match = False
                 for b in specific_barrios:
                     if b in POI_MATCH_KEYWORDS:
@@ -271,86 +249,214 @@ def match_properties(
 
                 matches = zone_match or title_match or poi_match
 
-                if matches:
-                    score += 15
-                    if title_match or poi_match:
-                        score += 5
-                else:
-                    # Si no coincide con "viva envigado" ni sus barrios colindantes, se descarta la propiedad
-                    if zone_fields or title or description:
+                if not matches and (zone_fields or title or description):
+                    continue
+
+        # === 3. HABITACIONES (filtro duro) ===
+        rooms = _get_number(prop, ["rooms", "bedrooms", "habitaciones", "alcobas", "num_rooms", "num_bedrooms"])
+        if solicitud.habitaciones_min and rooms < solicitud.habitaciones_min:
+            continue
+
+        # === 3b. BAÑOS (filtro duro) ===
+        if solicitud.bathrooms_min is not None:
+            bathrooms = _get_number(prop, ["bathrooms", "baños", "banos", "num_bathrooms", "half_bathrooms"])
+            if bathrooms < solicitud.bathrooms_min:
+                continue
+
+        # === 4. ÁREA (filtro duro) ===
+        area = _get_number(prop, ["area", "built_area", "area_construida", "area_total", "metros"])
+        if solicitud.area_min and area < solicitud.area_min:
+            continue
+
+        # === 5. ADMINISTRACIÓN (filtro duro) ===
+        admin_fee = _get_number(prop, ["administration", "admin_fee", "administracion"])
+        if solicitud.administracion_max and admin_fee > 0 and admin_fee > solicitud.administracion_max:
+            continue
+
+        # === 6. TIPO DE INMUEBLE (filtro duro) ===
+        if solicitud.tipo_inmueble:
+            from app.wasi_client import PROPERTY_TYPE_MAP
+
+            prop_type = str(prop.get("property_type", prop.get("tipo", prop.get("property_type_label", "")))).lower()
+            prop_type_id = _get_number(prop, ["id_property_type"])
+            tipos_solicitados = solicitud.tipo_inmueble if isinstance(solicitud.tipo_inmueble, list) else [solicitud.tipo_inmueble]
+            ids_solicitados = [PROPERTY_TYPE_MAP[t] for t in tipos_solicitados if t in PROPERTY_TYPE_MAP]
+
+            if "Lote" not in tipos_solicitados and "Lote Comercial" not in tipos_solicitados:
+                url_text = normalize_text(" ".join(filter(None, [
+                    prop_type,
+                    str(prop.get("url") or ""),
+                    str(prop.get("link") or ""),
+                ])))
+                if re.search(r"(?<!\w)(lote|terreno)(?!\w)", url_text):
+                    continue
+
+            es_valido = False
+            if prop_type_id and ids_solicitados:
+                es_valido = int(prop_type_id) in ids_solicitados
+
+            if not es_valido:
+                searchable = normalize_text(" ".join(filter(None, [
+                    prop_type,
+                    str(prop.get("url") or ""),
+                    str(prop.get("link") or ""),
+                    str(prop.get("title") or ""),
+                ])))
+                es_valido = any(
+                    re.search(r"(?<!\w)" + re.escape(t.lower()) + r"(?!\w)", searchable)
+                    for t in tipos_solicitados
+                )
+
+            if not es_valido:
+                continue
+
+        # === 7. CARACTERÍSTICAS (filtro duro) ===
+        if solicitud.caracteristicas and not all(_has_feature(prop, c) for c in solicitud.caracteristicas):
+            continue
+
+        # === 7b. PARQUEADEROS MÍNIMOS (filtro duro) ===
+        if solicitud.parqueaderos_min:
+            parking = int(_get_number(prop, ["parking", "garajes", "garage", "parking_spots"]))
+            if parking < solicitud.parqueaderos_min:
+                continue
+
+        # === 7c. VESTIERES MÍNIMOS (filtro duro) ===
+        if solicitud.vestieres_min is not None:
+            vestieres = int(_get_number(prop, ["vestier", "vestidores", "walk_in_closet", "walkin", "dressing_room"]))
+            if vestieres < solicitud.vestieres_min:
+                continue
+
+        # === 8. INMUEBLE NUEVO (filtro duro) ===
+        if solicitud.inmueble_nuevo:
+            year_cutoff = date.today().year - 5
+            year = _get_number(prop, ["building_date", "year", "year_built", "anio_construccion"])
+            if year and year < year_cutoff:
+                continue
+            if not year:
+                searchable_year = normalize_text(" ".join(filter(None, [
+                    str(prop.get("observations") or ""),
+                    str(prop.get("title") or ""),
+                    str(prop.get("description") or ""),
+                ])))
+                year_match = re.search(r"(?:a[ñn]o|anio|year|built|construido)\s*(?:construido|de construccion|de construcci[oó]n)?[:\s]*(\d{4})", searchable_year)
+                if year_match and int(year_match.group(1)) < year_cutoff:
+                    continue
+                if not year_match:
+                    old_kws = ["usado", "second hand", "viejo", "antiguo", "ocasion", "de ocasion"]
+                    if any(kw in searchable_year for kw in old_kws):
                         continue
 
-        # === 3. HABITACIONES (20 pts) ===
-        rooms = _get_number(prop, ["rooms", "bedrooms", "habitaciones", "alcobas", "num_rooms", "num_bedrooms"])
-        if solicitud.habitaciones_min:
-            if rooms < solicitud.habitaciones_min:
-                passes = False
-            else:
-                score += 20
+        # === 9. PISO (filtro duro) ===
+        if solicitud.piso_categoria or solicitud.piso_maximo is not None or solicitud.piso_minimo is not None:
+            prop_floor = _extract_property_floor(prop)
+            if prop_floor is None:
+                continue
+            passes_floor = True
+            if solicitud.piso_categoria == "bajo" and prop_floor > 8:
+                passes_floor = False
+            elif solicitud.piso_categoria == "medio" and not (6 < prop_floor < 12):
+                passes_floor = False
+            elif solicitud.piso_categoria == "alto" and prop_floor <= 9:
+                passes_floor = False
+            if solicitud.piso_maximo is not None and prop_floor > solicitud.piso_maximo:
+                passes_floor = False
+            if solicitud.piso_minimo is not None and prop_floor < solicitud.piso_minimo:
+                passes_floor = False
+            if not passes_floor:
+                continue
 
-        if not passes:
-            continue
+        # === 10. RENTAS CORTAS (filtro duro) ===
+        if solicitud.es_renta_corta:
+            searchable = normalize_text(" ".join(filter(None, [
+                str(prop.get("title") or ""),
+                str(prop.get("description") or ""),
+                str(prop.get("features") or ""),
+                str(prop.get("amenities") or ""),
+            ])))
+            renta_corta_kws = [
+                "rentas cortas", "renta corta", "corta estancia",
+                "renta temporal", "alquiler temporal", "alquiler corto",
+                "alquiler por dias", "alquiler mensual",
+                "arriendo temporal", "arriendo por dias",
+                "airbnb", "temporal",
+            ]
+            if not any(kw in searchable for kw in renta_corta_kws):
+                continue
 
-        # === 4. ÁREA (15 pts) ===
-        area = _get_number(prop, ["area", "built_area", "area_construida", "area_total", "metros"])
-        if solicitud.area_min:
-            if area < solicitud.area_min:
-                passes = False
-            else:
-                score += 15
+        # === 11. INDEPENDIENTE (excluir unidades cerradas / parcelaciones) ===
+        if solicitud.independiente:
+            searchable = normalize_text(" ".join(filter(None, [
+                str(prop.get("title") or ""),
+                str(prop.get("description") or ""),
+                str(prop.get("features") or ""),
+                str(prop.get("amenities") or ""),
+                str(prop.get("property_type") or ""),
+                str(prop.get("tipo") or ""),
+                str(prop.get("property_type_label") or ""),
+            ])))
+            unidad_kw = [
+                "unidad cerrada", "conjunto cerrado", "unidad residencial",
+                "unidad campestre", "condominio", "urbanizacion cerrada",
+                "ciudadela", "unidad privada",
+            ]
+            if any(kw in searchable for kw in unidad_kw):
+                continue
+            # Para Lote/Bodega, también excluir parcelaciones
+            prop_type_text = normalize_text(" ".join(filter(None, [
+                str(prop.get("property_type") or ""),
+                str(prop.get("tipo") or ""),
+                str(prop.get("property_type_label") or ""),
+                str(prop.get("title") or ""),
+            ])))
+            if re.search(r"(?<!\w)(lote|bodega|terreno)(?!\w)", prop_type_text):
+                if re.search(r"parcelacion|parcela|parcelación", searchable):
+                    continue
 
-        if not passes:
-            continue
+        results.append(prop)
 
-        # === 5. ADMINISTRACIÓN (10 pts) ===
-        admin_fee = _get_number(prop, ["administration", "admin_fee", "administracion"])
-        if solicitud.administracion_max and admin_fee > 0:
-            if admin_fee > solicitud.administracion_max:
-                passes = False
-            else:
-                score += 10
-
-        if not passes:
-            continue
-
-  
-
-# === 6. TIPO DE INMUEBLE (20 pts) ===
-        prop_type = str(prop.get("property_type", prop.get("tipo", prop.get("property_type_label", "")))).lower()
-        prop_type_id = int(_get_number(prop, ["id_property_type"]))
-        
-        # Si la solicitud tiene tipos definidos, validamos contra la lista
-        if solicitud.tipo_inmueble:
-            from app.wasi_client import PROPERTY_TYPE_MAP  # Importación local para resolver IDs
-            
-            # Aseguramos que solicitud.tipo_inmueble sea iterable
-            tipos_solicitados = solicitud.tipo_inmueble if isinstance(solicitud.tipo_inmueble, list) else [solicitud.tipo_inmueble]
-            
-            # Traducimos los tipos de texto ("Apartamento") a sus IDs correspondientes de Wasi (2)
-            ids_solicitados = [PROPERTY_TYPE_MAP[t] for t in tipos_solicitados if t in PROPERTY_TYPE_MAP]
-            
-            # Verificamos si el tipo del inmueble coincide por texto O por su ID de Wasi
-            es_valido = any(t.lower() in prop_type for t in tipos_solicitados) or (prop_type_id in ids_solicitados)
-            
-            if not es_valido:
-                continue # Descartamos si no es ninguno de los tipos buscados
-            else:
-                score += 20
-
-        # === 7. CARACTERÍSTICAS (5 pts c/u, bono — nunca descarta) ===
-        for caracteristica in solicitud.caracteristicas:
-            if _has_feature(prop, caracteristica):
-                score += 5
-
-        # === 8. BASE por pasar todos los filtros (5 pts) ===
-        score += 5
-
-        result = dict(prop)
-        result["match_score"] = round(score)
-        results.append(result)
-
-    results.sort(key=lambda x: x["match_score"], reverse=True)
     return results
+
+
+def _extract_property_floor(prop: dict) -> int | None:
+    # Primero buscar campo directo en la respuesta de Wasi
+    for key in ("piso", "floor", "nivel", "level", "num_pisos", "cantidad_pisos"):
+        val = prop.get(key)
+        if val is not None:
+            try:
+                ival = int(float(str(val)))
+                if 1 <= ival <= 100:
+                    return ival
+            except (ValueError, TypeError):
+                pass
+
+    searchable = " ".join(filter(None, [
+        str(prop.get("url") or ""),
+        str(prop.get("title") or ""),
+        str(prop.get("slug") or ""),
+        str(prop.get("description") or ""),
+        str(prop.get("comment") or ""),
+        str(prop.get("descripcion") or ""),
+    ])).lower()
+
+    if re.search(r"(?<!\w)penthouse(?!\w)", searchable):
+        return 20
+    if re.search(r"ultimo\s+piso|ultimo\s+nivel", searchable):
+        return 15
+    m = re.search(r"piso[-\s]*(\d+)", searchable)
+    if m:
+        return int(m.group(1))
+    m = re.search(r"(\d+)[°\s]*piso", searchable)
+    if m:
+        return int(m.group(1))
+    m = re.search(r"nivel[-\s]*(\d+)", searchable)
+    if m:
+        return int(m.group(1))
+    m = re.search(r"(\d+)\s*(?:niveles?|pisos?)\b", searchable)
+    if m:
+        val = int(m.group(1))
+        if 1 <= val <= 30:
+            return val
+    return None
 
 
 def _has_feature(prop: dict, caracteristica: str) -> bool:

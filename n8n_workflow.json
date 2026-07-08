@@ -254,43 +254,6 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [2220, 300]
-    },
-
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://gate.whapi.cloud/messages/text",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "Bearer cW8fV7EPgIeMfI3dCxrqEmR3ofYNgDvv"
-            }
-          ]
-        },
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "to",
-              "value": "={{ $('API Python /process').first().json.telefono.includes('@') ? $('API Python /process').first().json.telefono : '57' + $('API Python /process').first().json.telefono }}"
-            },
-            {
-              "name": "body",
-              "value": "={{ $('Extraer texto').first().json.text }}"
-            }
-          ]
-        },
-        "options": {
-          "timeout": 15000
-        }
-      },
-      "id": "node-enviar-pedido",
-      "name": "Enviar Pedido",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [2000, 300]
     }
   ],
   "connections": {
@@ -377,17 +340,6 @@
       ]
     },
     "Delay aleatorio": {
-      "main": [
-        [
-          {
-            "node": "Enviar Pedido",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Enviar Pedido": {
       "main": [
         [
           {

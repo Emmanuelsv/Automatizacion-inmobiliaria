@@ -84,10 +84,15 @@ def parse_only(payload: WebhookPayload):
         "habitaciones_min": result.habitaciones_min,
         "area_min": result.area_min,
         "administracion_max": result.administracion_max,
+        "parqueaderos_min": result.parqueaderos_min,
+        "vestieres_min": result.vestieres_min,
         "asesor": result.asesor,
         "cliente": result.cliente,
         "telefono": result.telefono,
         "caracteristicas": result.caracteristicas,
+        "piso_categoria": result.piso_categoria,
+        "piso_maximo": result.piso_maximo,
+        "piso_minimo": result.piso_minimo,
     }
 
 
@@ -151,14 +156,23 @@ async def process_message(payload: WebhookPayload):
     # Optimizamos macro-zonas
     solicitud.ubicaciones = optimizar_ubicaciones(solicitud.ubicaciones)
 
+    # Si no hay presupuesto, no podemos buscar (evita devolver todo el inventario)
+    if solicitud.presupuesto.exact is None:
+        return ProcessResponse(
+            es_solicitud=True,
+            mensajes=["⚠️ *Sin presupuesto*\n\nNo se especificó un presupuesto válido en la solicitud."],
+            telefono=solicitud.telefono,
+            asesor=solicitud.asesor,
+            total_resultados=0,
+            solicitud=_solicitud_to_dict(solicitud),
+        )
+
     ubicaciones_dict = [
         {"barrio": u.barrio, "ciudad": u.ciudad}
         for u in solicitud.ubicaciones
     ]
 
-    wasi_prop_type = None
-    if solicitud.tipo_inmueble and len(solicitud.tipo_inmueble) == 1:
-        wasi_prop_type = solicitud.tipo_inmueble[0]
+    wasi_prop_type = solicitud.tipo_inmueble
 
     try:
         properties = await search_all_locations(
@@ -222,12 +236,21 @@ def _solicitud_to_dict(solicitud) -> dict:
         },
         "tipo_inmueble": solicitud.tipo_inmueble,
         "habitaciones_min": solicitud.habitaciones_min,
+        "bathrooms_min": solicitud.bathrooms_min,
         "area_min": solicitud.area_min,
         "administracion_max": solicitud.administracion_max,
+        "parqueaderos_min": solicitud.parqueaderos_min,
+        "vestieres_min": solicitud.vestieres_min,
+        "es_renta_corta": solicitud.es_renta_corta,
+        "inmueble_nuevo": solicitud.inmueble_nuevo,
         "asesor": solicitud.asesor,
         "cliente": solicitud.cliente,
         "telefono": solicitud.telefono,
         "caracteristicas": solicitud.caracteristicas,
+        "piso_categoria": solicitud.piso_categoria,
+        "piso_maximo": solicitud.piso_maximo,
+        "piso_minimo": solicitud.piso_minimo,
+        "independiente": solicitud.independiente,
     }
 
 

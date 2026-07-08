@@ -2,13 +2,15 @@ import httpx
 from app.config import WASI_BASE_URL, WASI_COMPANY_ID, WASI_TOKEN
 
 PROPERTY_TYPE_MAP: dict[str, int] = {
-    "Apartamento": 2,
     "Casa": 1,
+    "Apartamento": 2,
     "Local": 3,
     "Oficina": 4,
-    "Bodega": 5,
-    "Lote": 6,
+    "Lote": 5,
+    "Lote Comercial": 6,
     "Finca": 7,
+    "Bodega": 8,
+    "Casa de Campo": 11,
 }
 
 CITY_ID_MAP: dict[str, int] = {

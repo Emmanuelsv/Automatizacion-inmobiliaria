@@ -1,7 +1,7 @@
 import re
 from dataclasses import dataclass
 
-from app.config import PRICE_MARGIN_ABOVE, PRICE_MARGIN_BELOW
+from app.config import PRICE_MARGIN_ABOVE, PRICE_MARGIN_BELOW, PRICE_MIN_FLOOR
 
 
 @dataclass
@@ -22,7 +22,7 @@ def parse_price(text: str) -> int | None:
     if match:
         num_str = match.group(1) + match.group(2) + match.group(3).replace(".", "")
         num = int(num_str)
-        if num >= 30_000_000:
+        if num >= PRICE_MIN_FLOOR:
             return num
 
     # $700.000.000 o 700.000.000 (puntos como separadores de miles)
@@ -30,7 +30,7 @@ def parse_price(text: str) -> int | None:
     match = re.search(r"\$?\s*(\d{1,5}(?:\.\d{3})+)", cleaned)
     if match:
         num = int(match.group(1).replace(".", ""))
-        if num >= 30_000_000:
+        if num >= PRICE_MIN_FLOOR:
             return num
         if 100 <= num <= 10_000:
             return num * 1_000_000
@@ -39,25 +39,29 @@ def parse_price(text: str) -> int | None:
     match = re.search(r"\$?\s*(\d{1,5}(?:,\d{3})+)", cleaned)
     if match:
         num = int(match.group(1).replace(",", ""))
-        if num >= 30_000_000:
+        if num >= PRICE_MIN_FLOOR:
             return num
 
     # 700 millones, 1.200 millones, 1200 millones, 700 mll, 700 mls
     match = re.search(r"(\d{1,5}(?:\.\d{3})?)\s*(?:millones|millon|mills?|mll|mls)\b", cleaned, re.IGNORECASE)
     if match:
         base = float(match.group(1).replace(".", ""))
-        return int(base * 1_000_000)
+        num = int(base * 1_000_000)
+        if num >= PRICE_MIN_FLOOR:
+            return num
 
     # 700M o 700m
     match = re.search(r"(\d{1,4})\s*[Mm]\b", cleaned)
     if match:
-        return int(match.group(1)) * 1_000_000
+        num = int(match.group(1)) * 1_000_000
+        if num >= PRICE_MIN_FLOOR:
+            return num
 
     # Número sin separadores: 1300000000 (mínimo 9 cifras para no confundir con teléfonos)
     match = re.search(r"\$?\s*(\d{9,12})(?!\d)", cleaned)
     if match:
         num = int(match.group(1))
-        if num >= 30_000_000:
+        if num >= PRICE_MIN_FLOOR:
             return num
 
     # Número solo (3-6 dígitos): se asume en millones (ej: "5000" → 5.000M, "800" → 800M)
@@ -65,7 +69,9 @@ def parse_price(text: str) -> int | None:
     if match:
         num = int(match.group(1))
         if 100 <= num <= 50_000:
-            return num * 1_000_000
+            result = num * 1_000_000
+            if result >= PRICE_MIN_FLOOR:
+                return result
 
     return None
 
@@ -97,11 +103,11 @@ def extract_budget(text: str) -> Budget:
         for match in re.finditer(r"(\d{1,3})[‘’](\d{3})((?:\.\d{3})*)", text):
             num_str = match.group(1) + match.group(2) + match.group(3).replace(".", "")
             num = int(num_str)
-            if num >= 30_000_000:
+            if num >= PRICE_MIN_FLOOR:
                 all_prices.append(num)
         for match in re.finditer(r"\$?\s*(\d{1,3}(?:\.\d{3}){2,})", text):
             num = int(match.group(1).replace(".", ""))
-            if num >= 30_000_000:
+            if num >= PRICE_MIN_FLOOR:
                 all_prices.append(num)
         # "750 mill", "650 millones", "700 mll", etc.
         for match in re.finditer(
@@ -110,7 +116,7 @@ def extract_budget(text: str) -> Budget:
         ):
             base = float(match.group(1).replace(".", "").replace(",", ""))
             num = int(base * 1_000_000)
-            if num >= 30_000_000:
+            if num >= PRICE_MIN_FLOOR:
                 all_prices.append(num)
         # "no sea mas 650", "no mas de 750", etc. (precio informal sin sufijo)
         for match in re.finditer(
@@ -123,7 +129,7 @@ def extract_budget(text: str) -> Budget:
         # Sufijo M/m suelto sin keyword de presupuesto (ej: "* $550 m")
         for match in re.finditer(r"\$?\s*(\d{1,4})\s*[Mm]\b", text):
             num = int(match.group(1)) * 1_000_000
-            if num >= 30_000_000:
+            if num >= PRICE_MIN_FLOOR:
                 all_prices.append(num)
         if all_prices:
             max_price = max(all_prices)

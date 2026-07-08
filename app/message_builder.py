@@ -1,11 +1,21 @@
 import re
 
 from app.parser import SolicitudParseada
+from app.matcher import _extract_property_floor, _get_number
 from app.config import MAX_RESULTS
 
 
+def _floor_label(piso: int | None) -> str | None:
+    if piso is None:
+        return None
+    if piso <= 8:
+        return "Bajo"
+    if 7 <= piso <= 11:
+        return "Medio"
+    return "Alto"
+
+
 def _no_contact_url(url: str) -> str:
-    """Convierte la URL de Wasi al formato sin datos de contacto (info.wasi.co)."""
     if not url:
         return url
     return re.sub(r'https?://[^/]+\.inmo\.co', 'https://info.wasi.co', url)
@@ -18,6 +28,38 @@ def format_price(price) -> str:
         return f"${int(price):,.0f}".replace(",", ".")
     except (ValueError, TypeError):
         return "N/A"
+
+
+def _property_type_label(prop: dict) -> str:
+    raw = str(prop.get("property_type", prop.get("tipo", prop.get("property_type_label", ""))))
+    return raw.capitalize() if raw else "Inmueble"
+
+
+def _location_label(prop: dict) -> str:
+    return prop.get("neighborhood", prop.get("zone", prop.get("zone_label", prop.get("city", ""))))
+
+
+def _stratum(prop: dict) -> int | None:
+    val = prop.get("stratum")
+    if val is not None:
+        try:
+            v = int(val)
+            if 1 <= v <= 6:
+                return v
+        except (ValueError, TypeError):
+            pass
+    # fallback: buscar en texto
+    searchable = " ".join(filter(None, [
+        str(prop.get("title", "")),
+        str(prop.get("description", "")),
+        str(prop.get("features", "")),
+    ]))
+    m = re.search(r"(?:estrato|stratum)\s*:?\s*(\d)", searchable, re.IGNORECASE)
+    if m:
+        v = int(m.group(1))
+        if 1 <= v <= 6:
+            return v
+    return None
 
 
 def build_response_message(
@@ -38,60 +80,51 @@ def build_response_message(
         return [msg]
 
     to_show = properties[:max_results]
+    messages: list[str] = []
 
-    header = "*Buenas colega ¿como estas?, esto te puede servir*\n\n"
-    #if solicitud.cliente:
-    #    header += f"Cliente: *{solicitud.cliente}*\n"
-    #header += f"Zonas: {', '.join(f'{u.barrio} ({u.ciudad})' for u in solicitud.ubicaciones)}\n"
-    #header += f"Presupuesto: hasta {format_price(solicitud.presupuesto.exact)}\n"
-    #if solicitud.tipo_inmueble:
-    #    header += f"Tipo: {solicitud.tipo_inmueble}\n"
-    #if solicitud.habitaciones_min:
-    #    header += f"Mín. {solicitud.habitaciones_min} habitaciones\n"
-    #if solicitud.area_min:
-    #    header += f"Mín. {solicitud.area_min} m²\n"
-    #header += "\n"
+    # Pedido primero (n8n enviará en orden: 1. pedido, 2..N. propiedades)
+    if solicitud.mensaje_original:
+        messages.append(
+            f"📋 *Buenas colega ¿como estas?, esto te puede servir:*\n\n{solicitud.mensaje_original}"
+        )
 
-    prop_lines: list[str] = []
-    for i, p in enumerate(to_show):
-        line = f"*{i + 1}. {p.get('title', p.get('titulo', 'Inmueble'))}*\n"
-        line += f" {p.get('neighborhood', p.get('zone', ''))}, {p.get('city', p.get('region', ''))}\n"
-        line += f" {format_price(p.get('sale_price', p.get('price')))}\n"
-        line += f" {p.get('area', '?')} m²"
-        line += f" |  {p.get('rooms', p.get('bedrooms', '?'))} hab"
-        line += f" |  {p.get('bathrooms', '?')} baños\n"
+    for p in to_show:
+        tipo = _property_type_label(p)
+        ubicacion = _location_label(p)
+        ciudad = p.get("city", p.get("region", ""))
+        url = _no_contact_url(p.get("url", p.get("link", "")))
 
-        admin = p.get("administration", p.get("admin_fee"))
-        if admin:
-            line += f" Adm: {format_price(admin)}\n"
+        area = _get_number(p, ["area", "built_area", "area_construida", "area_total", "metros"])
+        rooms = int(_get_number(p, ["rooms", "bedrooms", "habitaciones", "alcobas", "num_rooms", "num_bedrooms"]))
+        bathrooms = int(_get_number(p, ["bathrooms", "baños", "banos", "num_bathrooms"]))
+        parking = int(_get_number(p, ["parking", "garajes", "garage", "parking_spots"]))
+        sale_price = _get_number(p, ["sale_price", "price", "precio_venta", "precio", "valor_venta"])
+        stratum = _stratum(p)
 
-        url = _no_contact_url(p.get("url", p.get("link")))
+        location_part = f"{ubicacion}, {ciudad}" if ciudad else ubicacion
+
+        lines = [f"*{tipo} en venta en {location_part} :*"]
+        lines.append(f"- Precio de venta: {format_price(sale_price)}")
+
+        if area:
+            lines.append(f"- {int(area)} M2")
+        if rooms:
+            lines.append(f"- {rooms} Alcobas")
+        if bathrooms:
+            lines.append(f"- {bathrooms} Baños")
+        if parking:
+            lines.append(f"- {parking} Garaje")
+        if stratum is not None:
+            lines.append(f"- Estrato: {stratum}")
+
+        prop_floor = _extract_property_floor(p)
+        if prop_floor is not None:
+            lines.append(f"- Piso: {prop_floor}")
+
         if url:
-            line += f"🔗 {url}\n"
+            lines.append(f"- Más información y fotos:")
+            lines.append(url)
 
-        #line += f"⭐ Coincidencia: {p.get('match_score', 0)}%\n"
-        prop_lines.append(line)
-
-    footer = "\n VISITA NUESTRA PAGINA WEB PARA MAS OPCIONES: https://jhaeninmobiliarios.inmo.co/ "
-
-    full_body = "\n".join(prop_lines)
-    full_message = header + full_body + footer
-
-    if len(full_message) <= 4000:
-        return [full_message]
-
-    # Dividir en múltiples mensajes si supera límite de WhatsApp
-    messages = [header]
-    current = ""
-
-    for prop_text in prop_lines:
-        if len(current) + len(prop_text) > 3500:
-            messages.append(current)
-            current = prop_text
-        else:
-            current += "\n" + prop_text
-
-    if current:
-        messages.append(current + footer)
+        messages.append("\n".join(lines))
 
     return messages
